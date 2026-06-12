@@ -150,13 +150,60 @@ async function register(username, password) {
 async function login(username, password) {
   if (!username || !password) { ElMessage.warning('请输入用户名和密码'); return false }
 
-  // 查 Supabase
-  const remoteUser = await findAuthUser(username)
-  if (!remoteUser) { ElMessage.warning('用户不存在，请先注册'); return false }
+  // 先查 Supabase
+  let remoteUser = await findAuthUser(username)
 
-  // 验证密码
-  const valid = await verifyPassword(password, remoteUser.password_hash)
-  if (!valid) { ElMessage.error('密码错误'); return false }
+  // 如果 Supabase 没有，尝试从 localStorage 迁移旧账号
+  if (!remoteUser) {
+    const allUsers = JSON.parse(localStorage.getItem('offer_catcher_all_users') || '{}')
+    const userId = allUsers[username]
+    if (userId) {
+      const passwords = JSON.parse(localStorage.getItem('offer_catcher_passwords') || '{}')
+      const hashedPw = passwords[userId]
+      if (hashedPw) {
+        // 验证密码
+        const valid = await verifyPassword(password, hashedPw)
+        if (!valid) { ElMessage.error('密码错误'); return false }
+        // 迁移到 Supabase
+        const saved = await saveAuthUser(username, userId, hashedPw)
+        if (saved) {
+          remoteUser = { username, user_id: userId, password_hash: hashedPw }
+          console.log('旧账号已迁移到 Supabase:', username)
+        } else {
+          ElMessage.error('账号迁移失败，请重试'); return false
+        }
+      } else {
+        // 旧版无密码用户（兼容）
+        remoteUser = { username, user_id: userId, password_hash: '' }
+        saveAuthUser(username, userId, '').catch(() => {})
+      }
+    } else {
+      // localStorage 也没有 → 真的不存在
+      // 但也检查一下 user_data 表（可能在极早期注册）
+      try {
+        const { supabase } = await import('@/utils/supabase')
+        const { data: legacyUser } = await supabase
+          .from('user_data')
+          .select('user_id, username')
+          .eq('username', username)
+          .maybeSingle()
+        if (legacyUser) {
+          remoteUser = { username, user_id: legacyUser.user_id, password_hash: '' }
+        }
+      } catch {}
+    }
+  }
+
+  if (!remoteUser) {
+    ElMessage.warning('用户不存在，请先注册')
+    return false
+  }
+
+  // 验证密码（如果上面还没验证过）
+  if (remoteUser.password_hash) {
+    const valid = await verifyPassword(password, remoteUser.password_hash)
+    if (!valid) { ElMessage.error('密码错误'); return false }
+  }
 
   store.user = {
     username,
