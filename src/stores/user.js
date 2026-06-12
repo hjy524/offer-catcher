@@ -1,6 +1,11 @@
 import { reactive } from 'vue'
 import { ElMessage } from 'element-plus'
 import { hashPassword, verifyPassword } from '@/utils/crypto'
+import {
+  saveUserField, loadUserField,
+  fetchCommunityNotes as supabaseFetchNotes,
+  saveCommunityNotes as supabaseSaveNotes
+} from '@/utils/supabaseStorage'
 
 // ===========================================
 // Store - 用户名+密码认证，reactive 单一对象
@@ -15,7 +20,7 @@ const store = reactive({
 })
 
 // ===========================================
-// localStorage 工具
+// localStorage 工具（同步层）
 // ===========================================
 const loadFromStorage = (key) => {
   try {
@@ -35,6 +40,69 @@ const saveToStorage = (key, data) => {
 const mkKey = (prefix) => {
   if (!store.user) return null
   return `${prefix}_${store.user.id}`
+}
+
+// ===========================================
+// Supabase 同步
+// ===========================================
+
+// 同步本地数据到 Supabase（写入后调用，异步无阻塞）
+function scheduleSync(field, value) {
+  if (!store.user) return
+  const userId = store.user.id
+  const username = store.user.username
+  // 异步同步到 Supabase，不阻塞主流程
+  setTimeout(() => {
+    saveUserField(userId, username, field, value).catch(() => {})
+  }, 0)
+}
+
+// 从 Supabase 加载数据到 localStorage（登录/初始化时调用）
+async function loadFromSupabaseToLocal() {
+  if (!store.user) return
+  const userId = store.user.id
+  const username = store.user.username
+
+  try {
+    const { fetchUserData } = await import('@/utils/supabaseStorage')
+    const remoteData = await fetchUserData(userId)
+    if (!remoteData) return
+
+    // 字段映射：从 Supabase 加载到 localStorage
+    const fields = {
+      resumes: `offer_catcher_resumes_${userId}`,
+      journals: `offer_catcher_journals_${userId}`,
+      my_notes: `offer_catcher_my_notes_${userId}`,
+      favorites: `offer_catcher_favorites_${userId}`,
+      ai_chat: `offer_catcher_ai_chat_${userId}`,
+      diagnose_history: `offer_catcher_diagnose_history_${userId}`,
+      career_tags: `offer_catcher_career_tags_${userId}`,
+      liked_notes: `offer_catcher_liked_notes_${userId}`,
+      liked_articles: `offer_catcher_liked_articles_${userId}`
+    }
+
+    for (const [field, localKey] of Object.entries(fields)) {
+      if (remoteData[field] !== undefined && remoteData[field] !== null) {
+        const localData = loadFromStorage(localKey)
+        // 只在本地没有数据时才用远程数据（本地优先）
+        if (!localData || (Array.isArray(localData) && localData.length === 0)) {
+          saveToStorage(localKey, remoteData[field])
+        }
+      }
+    }
+
+    // 同步 profile
+    if (remoteData.profile) {
+      const existingProfile = loadFromStorage(`offer_catcher_profile_${userId}`)
+      if (!existingProfile) {
+        saveToStorage(`offer_catcher_profile_${userId}`, remoteData.profile)
+      }
+    }
+
+    console.log('✅ Supabase 数据同步完成')
+  } catch (e) {
+    console.warn('Supabase 同步失败（不影响使用）:', e)
+  }
 }
 
 // ===========================================
@@ -60,12 +128,26 @@ async function register(username, password) {
     return false
   }
 
-  // 检查用户名是否已存在
+  // 检查用户名是否已存在（本地 + Supabase）
   const allUsers = loadFromStorage('offer_catcher_all_users') || {}
   if (allUsers[username]) {
     ElMessage.warning('该用户名已被注册，请换一个')
     return false
   }
+
+  try {
+    // 检查 Supabase 中是否已有该用户
+    const { supabase } = await import('@/utils/supabase')
+    const { data: existing } = await supabase
+      .from('user_data')
+      .select('id')
+      .eq('username', username)
+      .maybeSingle()
+    if (existing) {
+      ElMessage.warning('该用户名已被注册，请换一个')
+      return false
+    }
+  } catch {}
 
   // 创建用户
   const userId = Date.now().toString()
@@ -92,6 +174,9 @@ async function register(username, password) {
   store.user = userData
   saveToStorage('offer_catcher_user', userData)
 
+  // 同步到 Supabase
+  scheduleSync('profile', {})
+
   ElMessage.success('注册成功！')
   return true
 }
@@ -115,11 +200,11 @@ async function login(username, password) {
   const passwords = loadFromStorage('offer_catcher_passwords') || {}
   const hashedPw = passwords[userId]
   if (!hashedPw) {
-    // 旧用户没有密码（兼容）→ 允许直接登录，但要求设置密码
-    // 对于已有数据的旧用户，直接放行
+    // 旧用户没有密码（兼容）→ 允许直接登录
     store.user = { username, id: userId }
     saveToStorage('offer_catcher_user', store.user)
     ElMessage.success('登录成功！')
+    loadFromSupabaseToLocal() // 异步同步
     return true
   }
 
@@ -144,6 +229,10 @@ async function login(username, password) {
   store.user = userData
   saveToStorage('offer_catcher_user', userData)
   ElMessage.success('登录成功！')
+
+  // 从 Supabase 同步数据到本地
+  loadFromSupabaseToLocal()
+
   return true
 }
 
@@ -155,39 +244,52 @@ function logout() {
 }
 
 // 初始化（恢复会话）
-function initUser() {
+async function initUser() {
   const stored = loadFromStorage('offer_catcher_user')
   if (stored && stored.username && stored.id) {
-    // 确保 createdAt 存在
     if (!stored.createdAt) {
       const usersData = loadFromStorage('offer_catcher_users_data') || {}
       stored.createdAt = usersData[stored.id]?.createdAt || null
     }
     store.user = stored
+    // 异步从 Supabase 加载数据
+    loadFromSupabaseToLocal()
   } else {
     store.user = null
   }
 }
 
 // ===========================================
-// 数据读写方法
+// 数据读写方法（同步写入 localStorage + 异步同步到 Supabase）
 // ===========================================
-function saveAIChat(messages) { const key = mkKey('offer_catcher_ai_chat'); if (key) saveToStorage(key, messages) }
+function saveAIChat(messages) {
+  const key = mkKey('offer_catcher_ai_chat'); if (key) { saveToStorage(key, messages); scheduleSync('ai_chat', messages) }
+}
 function loadAIChat() { const key = mkKey('offer_catcher_ai_chat'); return key ? (loadFromStorage(key) || []) : [] }
 
-function saveJournals(journals) { const key = mkKey('offer_catcher_journals'); if (key) saveToStorage(key, journals) }
+function saveJournals(journals) {
+  const key = mkKey('offer_catcher_journals'); if (key) { saveToStorage(key, journals); scheduleSync('journals', journals) }
+}
 function loadJournals() { const key = mkKey('offer_catcher_journals'); return key ? (loadFromStorage(key) || []) : [] }
 
-function saveMyNotes(notes) { const key = mkKey('offer_catcher_my_notes'); if (key) saveToStorage(key, notes) }
+function saveMyNotes(notes) {
+  const key = mkKey('offer_catcher_my_notes'); if (key) { saveToStorage(key, notes); scheduleSync('my_notes', notes) }
+}
 function loadMyNotes() { const key = mkKey('offer_catcher_my_notes'); return key ? (loadFromStorage(key) || []) : [] }
 
-function saveFavorites(favorites) { const key = mkKey('offer_catcher_favorites'); if (key) saveToStorage(key, favorites) }
+function saveFavorites(favorites) {
+  const key = mkKey('offer_catcher_favorites'); if (key) { saveToStorage(key, favorites); scheduleSync('favorites', favorites) }
+}
 function loadFavorites() { const key = mkKey('offer_catcher_favorites'); return key ? (loadFromStorage(key) || []) : [] }
 
-function saveResumes(resumes) { const key = mkKey('offer_catcher_resumes'); if (key) saveToStorage(key, resumes) }
+function saveResumes(resumes) {
+  const key = mkKey('offer_catcher_resumes'); if (key) { saveToStorage(key, resumes); scheduleSync('resumes', resumes) }
+}
 function loadResumes() { const key = mkKey('offer_catcher_resumes'); return key ? (loadFromStorage(key) || []) : [] }
 
-function saveCareerTags(tags) { const key = mkKey('offer_catcher_career_tags'); if (key) saveToStorage(key, tags) }
+function saveCareerTags(tags) {
+  const key = mkKey('offer_catcher_career_tags'); if (key) { saveToStorage(key, tags); scheduleSync('career_tags', tags) }
+}
 function loadCareerTags() { const key = mkKey('offer_catcher_career_tags'); return key ? loadFromStorage(key) : null }
 
 function saveProfile(profile) {
@@ -195,22 +297,45 @@ function saveProfile(profile) {
   saveToStorage(`offer_catcher_profile_${store.user.id}`, profile)
   Object.assign(store.user, profile)
   saveToStorage('offer_catcher_user', store.user)
+  scheduleSync('profile', profile)
 }
 function loadProfile() {
   if (!store.user) return null
   return loadFromStorage(`offer_catcher_profile_${store.user.id}`)
 }
 
-function saveLikedNotes(likedNotes) { const key = mkKey('offer_catcher_liked_notes'); if (key) saveToStorage(key, likedNotes) }
+function saveLikedNotes(likedNotes) {
+  const key = mkKey('offer_catcher_liked_notes'); if (key) { saveToStorage(key, likedNotes); scheduleSync('liked_notes', likedNotes) }
+}
 function loadLikedNotes() { const key = mkKey('offer_catcher_liked_notes'); return key ? (loadFromStorage(key) || []) : [] }
 
-function saveCommunityNotes(notes) { saveToStorage('offer_catcher_community_notes', notes) }
-function loadCommunityNotes() { return loadFromStorage('offer_catcher_community_notes') || [] }
+// 社区笔记 - 直接使用 Supabase
+async function saveCommunityNotes(notes) {
+  saveToStorage('offer_catcher_community_notes', notes)
+  try { await supabaseSaveNotes(notes) } catch {}
+}
+function loadCommunityNotes() {
+  return loadFromStorage('offer_catcher_community_notes') || []
+}
+// 异步从 Supabase 加载社区笔记（在合适时机调用）
+async function refreshCommunityNotes() {
+  try {
+    const notes = await supabaseFetchNotes()
+    if (notes && notes.length > 0) {
+      saveToStorage('offer_catcher_community_notes', notes)
+    }
+    return notes
+  } catch { return null }
+}
 
-function saveDiagnoseHistory(history) { const key = mkKey('offer_catcher_diagnose_history'); if (key) saveToStorage(key, history) }
+function saveDiagnoseHistory(history) {
+  const key = mkKey('offer_catcher_diagnose_history'); if (key) { saveToStorage(key, history); scheduleSync('diagnose_history', history) }
+}
 function loadDiagnoseHistory() { const key = mkKey('offer_catcher_diagnose_history'); return key ? (loadFromStorage(key) || []) : [] }
 
-function saveLikedArticles(likedArticles) { const key = mkKey('offer_catcher_liked_articles'); if (key) saveToStorage(key, likedArticles) }
+function saveLikedArticles(likedArticles) {
+  const key = mkKey('offer_catcher_liked_articles'); if (key) { saveToStorage(key, likedArticles); scheduleSync('liked_articles', likedArticles) }
+}
 function loadLikedArticles() { const key = mkKey('offer_catcher_liked_articles'); return key ? (loadFromStorage(key) || []) : [] }
 
 // ===========================================
@@ -230,6 +355,7 @@ Object.assign(store, {
   saveProfile, loadProfile,
   saveLikedNotes, loadLikedNotes,
   saveCommunityNotes, loadCommunityNotes,
+  refreshCommunityNotes,
   saveDiagnoseHistory, loadDiagnoseHistory,
   saveLikedArticles, loadLikedArticles
 })
