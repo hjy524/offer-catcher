@@ -450,7 +450,7 @@ onMounted(async () => {
   favoritedNotes.value = userStore.loadFavorites()
 
   // 从 Supabase 同步社区笔记（跨用户共享）
-  userStore.refreshCommunityNotes()
+  await userStore.refreshCommunityNotes()
 
   // Load saved community notes
   const savedCommunityNotes = userStore.loadCommunityNotes()
