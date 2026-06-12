@@ -441,13 +441,16 @@ const publishNote = () => {
   ElMessage.success('发布成功')
 }
 
-// Load community notes from localStorage on mount, merge with mock data
-onMounted(() => {
+// Load community notes from Supabase on mount, merge with mock data
+onMounted(async () => {
   // Load liked notes from userStore
   likedNotes.value = userStore.loadLikedNotes()
 
   // Load favorited notes from userStore
   favoritedNotes.value = userStore.loadFavorites()
+
+  // 从 Supabase 同步社区笔记（跨用户共享）
+  userStore.refreshCommunityNotes()
 
   // Load saved community notes
   const savedCommunityNotes = userStore.loadCommunityNotes()

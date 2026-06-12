@@ -8,7 +8,7 @@
             <span class="logo-text">Offer捕手</span>
           </div>
           <p class="footer-desc">AI驱动的求职成长平台，让每一位求职者都能找到理想工作</p>
-          <p class="footer-desc-sub">由腾讯HR团队倾力打造，赋能校园招聘全流程</p>
+          <p class="footer-desc-sub">基于Vue 3 + Supabase + AI大模型构建｜助力校园求职全流程</p>
         </div>
 
         <div class="footer-links">
@@ -167,7 +167,7 @@
       <div class="about-content">
         <div class="about-intro">
           <h3>关于 Offer捕手</h3>
-          <p>Offer捕手是由腾讯HR团队孵化的AI求职智能匹配平台，专注于为在校大学生和应届毕业生提供一站式求职成长服务。我们运用前沿的大语言模型技术，将AI能力深度融入求职全流程，帮助求职者从职业规划到拿到Offer的每一步都更高效、更智能。</p>
+          <p>Offer捕手是AI驱动的求职智能匹配平台，专注于为在校大学生和应届毕业生提供一站式求职成长服务。平台运用大语言模型技术，将AI能力融入求职全流程，覆盖AI咨询、简历优化、岗位匹配、JD诊断、心路日志、社区互助等场景，帮助求职者从职业规划到拿到Offer的每一步都更高效、更智能。</p>
         </div>
         <div class="about-features">
           <h4>🎯 核心功能</h4>
@@ -182,7 +182,7 @@
         </div>
         <div class="about-tech">
           <h4>🔬 技术架构</h4>
-          <p>前端基于 Vue 3 + Element Plus 构建，AI能力由硅基流动API（DeepSeek大模型）提供支持，数据层采用浏览器本地存储 + Supabase云端备份方案，部署于Cloudflare Pages全球CDN。所有AI功能均通过真实大模型API调用实现，确保诊断和咨询质量。</p>
+          <p>前端基于 Vue 3 + Element Plus 构建，AI能力由硅基流动API（DeepSeek大模型）提供支持，数据层采用 Supabase 云端数据库 + 内存缓存方案，部署于 Vercel 全球CDN。所有AI功能均通过真实大模型API调用实现，确保诊断和咨询质量。</p>
         </div>
         <div class="about-vision">
           <h4>🚀 产品愿景</h4>
