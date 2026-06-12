@@ -20,7 +20,7 @@ export const aiService = {
         model: aiModel, messages, max_tokens: 2048, temperature: 0.7, stream: false
       }, {
         headers: { 'Authorization': `Bearer ${aiApiKey}`, 'Content-Type': 'application/json' },
-        timeout: 60000
+        timeout: 30000
       })
       return response.data.choices[0].message.content
     } catch (error) {
@@ -42,6 +42,10 @@ export const aiService = {
     }
 
     try {
+      // 添加 AbortController 实现超时控制
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000)
+
       const response = await fetch(aiApiUrl, {
         method: 'POST',
         headers: {
@@ -54,8 +58,10 @@ export const aiService = {
           max_tokens: 2048,
           temperature: 0.7,
           stream: true
-        })
+        }),
+        signal: controller.signal
       })
+      clearTimeout(timeoutId)
 
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
 
@@ -90,7 +96,12 @@ export const aiService = {
       return fullText
     } catch (error) {
       console.error('流式AI调用失败:', error.message)
-      return this.chat(messages) // fallback to non-streaming
+      // fallback to non-streaming - 调用 onChunk 让前端收到回复
+      const fallbackText = await this.chat(messages)
+      if (fallbackText) {
+        onChunk(fallbackText)
+      }
+      return fallbackText
     }
   },
 
