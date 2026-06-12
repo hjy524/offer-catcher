@@ -179,6 +179,44 @@ async function migrateLocalStorage(userId, username) {
   return saveUserData(userId, username, userData)
 }
 
+// ===== 用户认证（跨浏览器登录） =====
+
+const AUTH_TABLE = 'auth_users'
+
+/**
+ * 保存用户认证信息到 Supabase
+ */
+async function saveAuthUser(username, userId, passwordHash) {
+  try {
+    const { error } = await supabase
+      .from(AUTH_TABLE)
+      .upsert({ username, user_id: userId, password_hash: passwordHash })
+    if (error) throw error
+    return true
+  } catch (e) {
+    console.warn('saveAuthUser failed:', e.message)
+    return false
+  }
+}
+
+/**
+ * 从 Supabase 查找用户
+ */
+async function findAuthUser(username) {
+  try {
+    const { data, error } = await supabase
+      .from(AUTH_TABLE)
+      .select('*')
+      .eq('username', username)
+      .maybeSingle()
+    if (error) throw error
+    return data || null
+  } catch (e) {
+    console.warn('findAuthUser failed:', e.message)
+    return null
+  }
+}
+
 export {
   fetchUserData,
   saveUserData,
@@ -186,5 +224,7 @@ export {
   loadUserField,
   fetchCommunityNotes,
   saveCommunityNotes,
-  migrateLocalStorage
+  migrateLocalStorage,
+  saveAuthUser,
+  findAuthUser
 }

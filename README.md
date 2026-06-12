@@ -9,7 +9,7 @@
 - **前端框架**: Vue 3 + Vite 5
 - **UI组件库**: Element Plus
 - **路由**: Vue Router (History 模式)
-- **数据库**: Supabase PostgreSQL（云端）+ localStorage（本地缓存）
+- **数据库**: Supabase PostgreSQL（云端存储，内存缓存读写）
 - **AI服务**: 硅基流动 API (DeepSeek-V4-Flash)
 - **部署**: Vercel（海外）/ Cloudflare Pages（国内）
 
@@ -112,17 +112,20 @@ src/
 
 ## 数据架构
 
-### 存储方案（双写策略）
+### 存储方案（纯云端 + 内存缓存）
 
 ```
-写入 → localStorage（同步，即时生效） → Supabase（异步，云端持久化）
-读取 ← localStorage（同步，秒级响应） ← Supabase（首次登录时同步）
+写入 → 内存缓存（即时响应） → Supabase（500ms 内持久化）
+读取 ← 内存缓存（毫秒级响应） ← Supabase（登录时全量加载）
 ```
+
+所有用户数据存储在 Supabase 云端，前端使用内存缓存实现秒级读写，不依赖 localStorage。换浏览器或设备登录同一账号，数据自动同步。
 
 ### Supabase 数据表
 
 | 表名 | 用途 | 关键字段 |
 |------|------|----------|
+| `auth_users` | 用户认证 | username(PK), user_id, password_hash |
 | `user_data` | 用户数据存储 | user_id(PK), username, data(JSONB) |
 | `community_notes` | 社区笔记 | id(PK), author, title, content, likes, comments |
 
