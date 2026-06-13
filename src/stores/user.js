@@ -70,10 +70,8 @@ async function loadCacheFromSupabase(migrateFromLocal) {
       })
       if (remoteData.profile) Object.assign(store.user, remoteData.profile)
       console.log('✅ 从 Supabase 加载数据完成')
-    } else if (migrateFromLocal) {
-      // 无云端数据，尝试从 localStorage 迁移
-      migrateLocalStorageToCache()
     }
+    // 云端无数据 → 保持空白缓存，不迁移本地数据
   } catch (e) {
     console.warn('Supabase 加载失败:', e.message)
   }
@@ -254,10 +252,6 @@ async function initUser() {
 
 function saveToCache(field, value) {
   store._cache[field] = value
-  // Supabase 未配置时，用 localStorage 兜底防止数据丢失
-  if (!isSupabaseReady && store.user) {
-    try { localStorage.setItem(`offer_catcher_${field}_${store.user.id}`, JSON.stringify(value)) } catch {}
-  }
   debounceSync()
 }
 
