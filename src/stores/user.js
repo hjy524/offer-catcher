@@ -211,8 +211,8 @@ async function login(username, password) {
     createdAt: remoteUser.created_at || new Date().toISOString()
   }
 
-  // 从 Supabase 加载数据（同时迁移旧 localStorage 数据）
-  await loadCacheFromSupabase(true)
+  // 异步从 Supabase 加载数据（不阻塞登录）
+  loadCacheFromSupabase(true).catch(() => {})
 
   ElMessage.success('登录成功！')
   return true
@@ -237,7 +237,8 @@ async function initUser() {
       const parsed = JSON.parse(stored)
       if (parsed && parsed.username && parsed.id) {
         store.user = parsed
-        await loadCacheFromSupabase(true)
+        // 异步加载云端数据，不阻塞页面渲染
+        loadCacheFromSupabase(true).catch(() => {})
         return
       }
     } catch {}
