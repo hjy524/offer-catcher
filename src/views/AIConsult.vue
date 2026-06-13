@@ -10,6 +10,10 @@
               <p class="subtitle">帮你梳理职业方向，解答求职疑惑</p>
             </div>
             <el-button type="warning" plain size="small" @click="clearConversation">🔄 新话题</el-button>
+            <el-button text size="small" :type="aiConnected ? 'success' : 'danger'" @click="showAIStatus = true">
+              <span :class="['status-dot', aiConnected ? 'on' : 'off']"></span>
+              {{ aiConnected ? '已连接' : '未连接' }}
+            </el-button>
           </div>
         </div>
 
@@ -210,6 +214,31 @@
       </div>
     </div>
   </div>
+    <!-- AI连接状态弹窗 -->
+    <el-dialog v-model="showAIStatus" title="AI服务状态" width="420px">
+      <div class="ai-status-content">
+        <div class="status-row"><span class="status-key">API Key</span>
+          <span :class="['status-val', aiStatusDetail.configured ? 'ok' : 'err']">
+            {{ aiStatusDetail.keyPreview || '未设置' }}
+            <span v-if="aiStatusDetail.configured">接入成功</span>
+            <span v-else>未配置</span>
+          </span>
+        </div>
+        <div class="status-row"><span class="status-key">模型</span>
+          <span class="status-val">{{ aiStatusDetail.model }}</span>
+        </div>
+        <div class="status-row"><span class="status-key">调用记录</span>
+          <span :class="['status-val', aiStatusDetail.hasSucceeded ? 'ok' : '']">
+            {{ aiStatusDetail.hasSucceeded ? '曾经成功' : '尚未成功调用' }}
+          </span>
+        </div>
+        <div class="status-row" v-if="aiStatusDetail.lastError">
+          <span class="status-key">错误信息</span>
+          <span class="status-val err">{{ aiStatusDetail.lastError }}</span>
+        </div>
+        <p class="ai-status-tip">提示：AI服务需在Vercel后台配置 VITE_AI_API_KEY 等环境变量并重新部署</p>
+      </div>
+    </el-dialog>
 </template>
 
 <script setup>
@@ -224,6 +253,17 @@ const messagesContainer = ref(null)
 const inputMessage = ref('')
 const messages = ref([])
 const isLoading = ref(false)
+
+// AI 连接状态
+const showAIStatus = ref(false)
+const aiConnected = ref(false)
+const aiStatusDetail = ref({})
+const checkAIStatus = () => {
+  const s = aiService.getConfigStatus()
+  aiStatusDetail.value = s
+  aiConnected.value = s.configured
+  showAIStatus.value = true
+}
 
 // 标签编辑器相关
 const showTagEditor = ref(false)
@@ -883,3 +923,15 @@ const formatMessage = (content) => {
   }
 }
 </style>
+/* AI状态指示器 */
+.status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+.status-dot.on { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+.status-dot.off { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
+.ai-status-content { padding: 8px 0; }
+.status-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+.status-key { color: #666; }
+.status-val { font-weight: 500; color: #333; }
+.status-val.ok { color: #16a34a; }
+.status-val.err { color: #dc2626; }
+.ai-status-tip { margin-top: 16px; font-size: 13px; color: #999; background: #f8f9fa; padding: 12px; border-radius: 8px; }
+

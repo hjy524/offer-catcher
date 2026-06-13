@@ -9,7 +9,11 @@ const aiModel = import.meta.env.VITE_AI_MODEL || 'deepseek-ai/DeepSeek-V3'
 
 const isConfigured = !!aiApiKey && aiApiKey !== 'your-siliconflow-api-key'
 
-console.log('AI服务配置:', { model: aiModel, configured: isConfigured })
+// 标记是否在本次会话中使用过真实 API
+let _hasEverSucceeded = false
+let _lastError = ''
+
+console.log('[AI服务] 模型:', aiModel, '| 已配置:', isConfigured, '| Key前缀:', aiApiKey ? aiApiKey.slice(0, 8) + '...' : '无')
 
 export const aiService = {
   /** 基础对话（非流式） */
@@ -22,9 +26,14 @@ export const aiService = {
         headers: { 'Authorization': `Bearer ${aiApiKey}`, 'Content-Type': 'application/json' },
         timeout: 30000
       })
+      _hasEverSucceeded = true
       return response.data.choices[0].message.content
     } catch (error) {
-      console.error('AI API调用失败:', error.message)
+      _lastError = error.message
+      console.error('[AI服务] API调用失败:', error.message)
+      if (error.response) {
+        console.error('[AI服务] 状态码:', error.response.status, '| 响应:', JSON.stringify(error.response.data).slice(0, 200))
+      }
       return this.mockResponse(messages)
     }
   },
@@ -163,6 +172,12 @@ export const aiService = {
   },
 
   getConfigStatus() {
-    return { configured: isConfigured, model: aiModel }
+    return {
+      configured: isConfigured,
+      model: aiModel,
+      hasSucceeded: _hasEverSucceeded,
+      lastError: _lastError,
+      keyPreview: aiApiKey ? aiApiKey.slice(0, 8) + '...' : '未设置'
+    }
   }
 }
