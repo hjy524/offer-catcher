@@ -49,11 +49,9 @@ function debounceSync() {
   }, 2000)
 }
 
-// 首次登录：从 Supabase 拉取全部数据到缓存
+// 首次登录：优先从 Supabase 拉取，无数据时从本地迁移
 async function loadCacheFromSupabase(migrateFromLocal) {
   if (!store.user) return
-  // 如果 Supabase 未配置，直接尝试本地迁移，不发网络请求
-  if (migrateFromLocal) { migrateLocalStorageToCache(); return }
   try {
     const remoteData = await supabaseFetchAll(store.user.id)
     if (remoteData && Object.keys(remoteData).length > 0) {
@@ -256,6 +254,10 @@ async function initUser() {
 
 function saveToCache(field, value) {
   store._cache[field] = value
+  // Supabase 未配置时，用 localStorage 兜底防止数据丢失
+  if (!isSupabaseReady && store.user) {
+    try { localStorage.setItem(`offer_catcher_${field}_${store.user.id}`, JSON.stringify(value)) } catch {}
+  }
   debounceSync()
 }
 
