@@ -89,7 +89,7 @@
           <!-- 优化结果 -->
           <div v-if="optimizedResume" class="optimized-section">
             <h3>🎨 优化后的简历</h3>
-            <div v-html="formatMarkdown(optimizedResume)" class="resume-preview optimized-markdown"></div>
+            <div v-html="formatResumeText(optimizedResume)" class="resume-preview optimized-markdown"></div>
             <div class="resume-actions">
               <el-button type="primary" @click="saveOptimized">保存优化版本</el-button>
               <el-button @click="downloadResume">下载TXT</el-button>
@@ -123,6 +123,21 @@ import { ElMessage } from 'element-plus'
 import { aiService } from '@/utils/aiService'
 import { useUserStore } from '@/stores/user'
 import { formatMarkdown } from '@/utils/markdown'
+
+/** 安全格式化简历：纯文本渲染，不会被 Markdown 语法干扰 */
+function formatResumeText(text) {
+  if (!text) return ''
+  // 先转义 HTML，防止注入
+  const escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+  // 双换行 → 段落分隔
+  return escaped
+    .split(/\n\n+/)
+    .map(p => `<p style="margin:12px 0;line-height:1.9;">${p.replace(/\n/g, '<br>')}</p>`)
+    .join('')
+}
 
 const userStore = useUserStore()
 
@@ -768,37 +783,12 @@ const downloadResume = () => {
   color: #333;
 }
 
-/* 优化简历区域的统一色彩 - 覆盖 formatMarkdown 内联样式 */
-.optimized-markdown :deep(h1),
-.optimized-markdown :deep(h2),
-.optimized-markdown :deep(h3),
-.optimized-markdown :deep(h4) {
-  color: #1e40af !important;
-  border-bottom-color: #3b82f6 !important;
-}
+/* 优化简历区域 - 纯文本展示，无 Markdown 干扰 */
 .optimized-markdown :deep(p) {
-  color: #374151 !important;
-  line-height: 1.8 !important;
-}
-.optimized-markdown :deep(strong) {
-  color: #1e293b !important;
-}
-.optimized-markdown :deep(code) {
-  background: #eef2ff !important;
-  color: #1e40af !important;
-}
-.optimized-markdown :deep(pre) {
-  background: #1e293b !important;
-}
-.optimized-markdown :deep(pre code) {
-  background: transparent !important;
-  color: #e2e8f0 !important;
-}
-.optimized-markdown :deep(li) {
-  color: #374151 !important;
-}
-.optimized-markdown :deep(a) {
-  color: #2563eb !important;
+  color: #1e293b;
+  line-height: 1.9;
+  font-size: 14px;
+  white-space: normal;
 }
 
 .resume-actions {
