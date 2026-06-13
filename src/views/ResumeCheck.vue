@@ -713,22 +713,26 @@ const downloadResume = () => {
 
 .optimized-section {
   margin-top: 24px;
-  padding-top: 24px;
-  border-top: 1px solid #eee;
+  padding: 20px;
+  border-radius: 10px;
+  background: #fffbeb;
+  border-left: 4px solid #f59e0b;
 }
 
 .optimized-section h3 {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   margin-bottom: 16px;
+  color: #1e40af;
 }
 
 .resume-preview {
-  background: #f8f9fa;
+  background: #fff;
   padding: 20px;
   border-radius: 8px;
   max-height: 400px;
   overflow-y: auto;
+  border: 1px solid #f0f0f0;
 }
 
 .resume-preview :deep(p) {
