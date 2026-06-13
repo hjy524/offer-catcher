@@ -39,17 +39,25 @@ const store = reactive({
 // ===========================================
 
 let _syncTimer = null
+let _lastSyncTime = 0
+const MIN_SYNC_INTERVAL = 3000 // 最小同步间隔 3 秒
+
 function debounceSync() {
   if (!store.user) return
   clearTimeout(_syncTimer)
   _syncTimer = setTimeout(() => {
+    const now = Date.now()
+    if (now - _lastSyncTime < MIN_SYNC_INTERVAL) return // 频率太高，跳过
+    _lastSyncTime = now
     supabaseSaveAll(store.user.id, store.user.username, store._cache).catch(() => {})
-  }, 500)
+  }, 1000)
 }
 
 // 首次登录：从 Supabase 拉取全部数据到缓存
 async function loadCacheFromSupabase(migrateFromLocal) {
   if (!store.user) return
+  // 如果 Supabase 未配置，直接尝试本地迁移，不发网络请求
+  if (migrateFromLocal) { migrateLocalStorageToCache(); return }
   try {
     const remoteData = await supabaseFetchAll(store.user.id)
     if (remoteData && Object.keys(remoteData).length > 0) {
