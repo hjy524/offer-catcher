@@ -407,11 +407,27 @@ const runFilteredInsight = async () => {
   const conds = []
   if (insightDateRange.value) conds.push(`时间：${insightDateRange.value[0]}至${insightDateRange.value[1]}`)
   if (insightTagFilter.value) conds.push(`标签：#${insightTagFilter.value}`)
-  const prompt = `基于以下求职者${source.length}篇心路日志${conds.length ? '（' + conds.join('，') + '）' : ''}，分析其心理状态、关注点和情绪趋势，并给出3-5条职业发展建议：\n\n${journalsText}`
+  const prompt = `分析以下求职者${source.length}篇心路日志，用自然语言分析其心理状态、关注点和情绪趋势，并给出3-5条职业发展建议：
+
+${journalsText}`
   try {
-    insightResult.value = await aiService.chat([{ role: 'user', content: prompt }])
-  } catch { insightResult.value = 'AI分析失败' }
+    const raw = await aiService.chat([{ role: "user", content: prompt }])
+    let clean = (raw || "").trim()
+    clean = clean.replace(/^```[\w]*\n?/, '').replace(/\n?```$/, '')
+    if (clean.startsWith("{") || (clean.length > 0 && !/[一-龥]/.test(clean.charAt(0)))) {
+      clean = "AI分析完成，但返回格式异常，请稍后再试。"
+    }
+    insightResult.value = clean || "AI分析失败，请重试"
+  } catch { insightResult.value = "AI分析失败，请检查网络后重试" }
   finally { insightLoading.value = false }
+}
+
+// AI洞察快捷按钮（调用侧边栏的洞察功能）
+const runAIInsight = () => {
+  if (journals.value.length === 0) { ElMessage.warning('还没有日志记录'); return }
+  insightTagFilter.value = ''
+  insightDateRange.value = null
+  runFilteredInsight()
 }
 
 // 搜索

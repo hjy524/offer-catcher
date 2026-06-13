@@ -89,7 +89,7 @@
           <!-- 优化结果 -->
           <div v-if="optimizedResume" class="optimized-section">
             <h3>🎨 优化后的简历</h3>
-            <div v-html="formatMarkdown(optimizedResume)" class="resume-preview"></div>
+            <div v-html="formatMarkdown(optimizedResume)" class="resume-preview optimized-markdown"></div>
             <div class="resume-actions">
               <el-button type="primary" @click="saveOptimized">保存优化版本</el-button>
               <el-button @click="downloadResume">下载TXT</el-button>
@@ -762,6 +762,39 @@ const downloadResume = () => {
   white-space: pre-wrap;
   word-break: break-all;
   color: #333;
+}
+
+/* 优化简历区域的统一色彩 - 覆盖 formatMarkdown 内联样式 */
+.optimized-markdown :deep(h1),
+.optimized-markdown :deep(h2),
+.optimized-markdown :deep(h3),
+.optimized-markdown :deep(h4) {
+  color: #1e40af !important;
+  border-bottom-color: #3b82f6 !important;
+}
+.optimized-markdown :deep(p) {
+  color: #374151 !important;
+  line-height: 1.8 !important;
+}
+.optimized-markdown :deep(strong) {
+  color: #1e293b !important;
+}
+.optimized-markdown :deep(code) {
+  background: #eef2ff !important;
+  color: #1e40af !important;
+}
+.optimized-markdown :deep(pre) {
+  background: #1e293b !important;
+}
+.optimized-markdown :deep(pre code) {
+  background: transparent !important;
+  color: #e2e8f0 !important;
+}
+.optimized-markdown :deep(li) {
+  color: #374151 !important;
+}
+.optimized-markdown :deep(a) {
+  color: #2563eb !important;
 }
 
 .resume-actions {
