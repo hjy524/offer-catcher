@@ -7,9 +7,10 @@ import {
   fetchCommunityNotes as supabaseFetchNotes,
   saveAuthUser, findAuthUser
 } from '@/utils/supabaseStorage'
+import { isSupabaseReady } from '@/utils/supabase'
 
 // ===========================================
-// Store - 纯云端存储，无 localStorage
+// Store - Supabase云端 + 内存缓存
 // ===========================================
 
 const store = reactive({
@@ -39,18 +40,13 @@ const store = reactive({
 // ===========================================
 
 let _syncTimer = null
-let _lastSyncTime = 0
-const MIN_SYNC_INTERVAL = 3000 // 最小同步间隔 3 秒
-
 function debounceSync() {
-  if (!store.user) return
+  // Supabase 未配置 → 不写入云端
+  if (!isSupabaseReady || !store.user) return
   clearTimeout(_syncTimer)
   _syncTimer = setTimeout(() => {
-    const now = Date.now()
-    if (now - _lastSyncTime < MIN_SYNC_INTERVAL) return // 频率太高，跳过
-    _lastSyncTime = now
     supabaseSaveAll(store.user.id, store.user.username, store._cache).catch(() => {})
-  }, 1000)
+  }, 2000)
 }
 
 // 首次登录：从 Supabase 拉取全部数据到缓存
@@ -289,8 +285,6 @@ function saveProfile(profile) {
   if (!store.user) return
   saveToCache('profile', profile)
   Object.assign(store.user, profile)
-  // 持久化 user 到 localStorage 仅为了恢复会话
-  localStorage.setItem('offer_catcher_user', JSON.stringify(store.user))
 }
 function loadProfile() { return loadFromCache('profile', {}) }
 
