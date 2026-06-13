@@ -336,6 +336,7 @@ const testLinks = [
 
 // 加载历史对话
 onMounted(() => {
+  checkAIStatus() // 自动检测AI连接状态
   const saved = userStore.loadAIChat()
   if (saved && saved.length > 0) {
     messages.value = saved
