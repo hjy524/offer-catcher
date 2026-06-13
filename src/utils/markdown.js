@@ -13,12 +13,12 @@ export function formatMarkdown(content) {
   const codeBlocks = []
   html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
     const placeholder = `__CODE_BLOCK_${codeBlocks.length}__`
-    codeBlocks.push(`<pre style="background:#1e293b;color:#e2e8f0;padding:16px;border-radius:8px;overflow-x:auto;font-family:'Consolas','Monaco',monospace;font-size:13px;margin:12px 0;line-height:1.5;"><code>${escapeHtml(code.trim())}</code></pre>`)
+    codeBlocks.push(`<pre style="background:#f8fafc;color:#334155;padding:16px;border-radius:8px;overflow-x:auto;font-family:'Consolas','Monaco',monospace;font-size:13px;margin:12px 0;line-height:1.5;border:1px solid #e2e8f0;"><code>${escapeHtml(code.trim())}</code></pre>`)
     return placeholder
   })
 
   // 2. 处理行内代码
-  html = html.replace(/`([^`\n]+)`/g, '<code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;font-family:monospace;font-size:13px;color:#1e40af;">$1</code>')
+  html = html.replace(/`([^`\n]+)`/g, '<code style="background:#f8fafc;padding:2px 6px;border-radius:4px;font-family:monospace;font-size:13px;color:#334155;border:1px solid #e2e8f0;">$1</code>')
 
   // 3. 按行处理
   const lines = html.split('\n')

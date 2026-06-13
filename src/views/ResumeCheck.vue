@@ -89,7 +89,7 @@
           <!-- 优化结果 -->
           <div v-if="optimizedResume" class="optimized-section">
             <h3>🎨 优化后的简历</h3>
-            <div v-html="formatResumeText(optimizedResume)" class="resume-preview optimized-markdown"></div>
+            <div v-html="formatMarkdown(optimizedResume)" class="resume-preview optimized-markdown"></div>
             <div class="resume-actions">
               <el-button type="primary" @click="saveOptimized">保存优化版本</el-button>
               <el-button @click="downloadResume">下载TXT</el-button>
@@ -123,21 +123,6 @@ import { ElMessage } from 'element-plus'
 import { aiService } from '@/utils/aiService'
 import { useUserStore } from '@/stores/user'
 import { formatMarkdown } from '@/utils/markdown'
-
-/** 安全格式化简历：纯文本渲染，不会被 Markdown 语法干扰 */
-function formatResumeText(text) {
-  if (!text) return ''
-  // 先转义 HTML，防止注入
-  const escaped = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-  // 双换行 → 段落分隔
-  return escaped
-    .split(/\n\n+/)
-    .map(p => `<p style="margin:12px 0;line-height:1.9;">${p.replace(/\n/g, '<br>')}</p>`)
-    .join('')
-}
 
 const userStore = useUserStore()
 
@@ -730,8 +715,8 @@ const downloadResume = () => {
   margin-top: 24px;
   padding: 20px;
   border-radius: 10px;
-  background: #fffbeb;
-  border-left: 4px solid #f59e0b;
+  background: #fff;
+  border: 1px solid #e5e7eb;
 }
 
 .optimized-section h3 {
@@ -783,12 +768,18 @@ const downloadResume = () => {
   color: #333;
 }
 
-/* 优化简历区域 - 纯文本展示，无 Markdown 干扰 */
-.optimized-markdown :deep(p) {
-  color: #1e293b;
-  line-height: 1.9;
-  font-size: 14px;
-  white-space: normal;
+.optimized-markdown :deep(pre) {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+}
+.optimized-markdown :deep(pre code) {
+  background: transparent !important;
+  color: #334155 !important;
+}
+.optimized-markdown :deep(code) {
+  background: #f8fafc !important;
+  color: #334155 !important;
+  border: 1px solid #e2e8f0 !important;
 }
 
 .resume-actions {
