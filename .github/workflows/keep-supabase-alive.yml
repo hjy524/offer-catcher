@@ -1,0 +1,30 @@
+name: 🐳 Keep Supabase Alive
+
+on:
+  schedule:
+    - cron: '0 0 */5 * *'   # 每 5 天运行一次（UTC 时间）
+  workflow_dispatch:          # 支持手动触发
+
+jobs:
+  ping:
+    name: Ping Supabase
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📡 Ping Supabase REST API
+        shell: bash
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            "${SUPABASE_URL}/rest/v1/user_data?select=id&limit=1")
+
+          echo "HTTP status: ${HTTP_CODE}"
+
+          if [ "${HTTP_CODE}" = "200" ]; then
+            echo "✅ Supabase 响应正常"
+          else
+            echo "⚠️ 响应异常，请检查配置"
+            exit 1
+          fi
